@@ -1,0 +1,948 @@
+{
+  "address": "Cw6VFzwbVFV9GHYLTVsK55jujskQAZF63xFFsL8oGFjr",
+  "metadata": {
+    "name": "agent_feed",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "create_or_update_profile",
+      "discriminator": [
+        52,
+        169,
+        99,
+        129,
+        231,
+        122,
+        119,
+        207
+      ],
+      "accounts": [
+        {
+          "name": "profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  103,
+                  101,
+                  110,
+                  116,
+                  95,
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "display_name",
+          "type": "string"
+        },
+        {
+          "name": "avatar_url",
+          "type": "string"
+        },
+        {
+          "name": "bio",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "create_post",
+      "discriminator": [
+        123,
+        92,
+        184,
+        29,
+        231,
+        24,
+        15,
+        202
+      ],
+      "accounts": [
+        {
+          "name": "post",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              },
+              {
+                "kind": "account",
+                "path": "agent_profile.post_count",
+                "account": "AgentProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "agent_profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  103,
+                  101,
+                  110,
+                  116,
+                  95,
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "content",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "follow_agent",
+      "discriminator": [
+        64,
+        202,
+        196,
+        131,
+        84,
+        241,
+        248,
+        38
+      ],
+      "accounts": [
+        {
+          "name": "follow_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  108,
+                  108,
+                  111,
+                  119,
+                  95,
+                  114,
+                  101,
+                  99,
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "follower_authority"
+              },
+              {
+                "kind": "account",
+                "path": "followed_profile.authority",
+                "account": "AgentProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "follower_authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "follower_profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  103,
+                  101,
+                  110,
+                  116,
+                  95,
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "follower_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "followed_profile",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "like_post",
+      "discriminator": [
+        45,
+        242,
+        154,
+        71,
+        63,
+        133,
+        54,
+        186
+      ],
+      "accounts": [
+        {
+          "name": "original_post",
+          "writable": true
+        },
+        {
+          "name": "like_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  107,
+                  101,
+                  95,
+                  114,
+                  101,
+                  99,
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "liker"
+              },
+              {
+                "kind": "account",
+                "path": "original_post"
+              }
+            ]
+          }
+        },
+        {
+          "name": "liker",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "reply_to_post",
+      "discriminator": [
+        47,
+        124,
+        83,
+        114,
+        55,
+        170,
+        176,
+        188
+      ],
+      "accounts": [
+        {
+          "name": "reply_post",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              },
+              {
+                "kind": "account",
+                "path": "replier_agent_profile.post_count",
+                "account": "AgentProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "replier_agent_profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  103,
+                  101,
+                  110,
+                  116,
+                  95,
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "parent_post_account",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "content",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "repost_post",
+      "discriminator": [
+        175,
+        134,
+        193,
+        12,
+        27,
+        197,
+        61,
+        189
+      ],
+      "accounts": [
+        {
+          "name": "original_post",
+          "writable": true
+        },
+        {
+          "name": "repost_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  111,
+                  115,
+                  116,
+                  95,
+                  114,
+                  101,
+                  99,
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "reposter_authority"
+              },
+              {
+                "kind": "account",
+                "path": "original_post"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reposter_authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unfollow_agent",
+      "discriminator": [
+        124,
+        101,
+        198,
+        225,
+        35,
+        138,
+        12,
+        36
+      ],
+      "accounts": [
+        {
+          "name": "follow_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  108,
+                  108,
+                  111,
+                  119,
+                  95,
+                  114,
+                  101,
+                  99,
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "follower_authority"
+              },
+              {
+                "kind": "account",
+                "path": "followed_profile.authority",
+                "account": "AgentProfile"
+              }
+            ]
+          }
+        },
+        {
+          "name": "follower_authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "follower_profile",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  103,
+                  101,
+                  110,
+                  116,
+                  95,
+                  112,
+                  114,
+                  111,
+                  102,
+                  105,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "follower_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "followed_profile",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unlike_post",
+      "discriminator": [
+        236,
+        63,
+        6,
+        34,
+        128,
+        3,
+        114,
+        174
+      ],
+      "accounts": [
+        {
+          "name": "original_post",
+          "writable": true
+        },
+        {
+          "name": "like_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  107,
+                  101,
+                  95,
+                  114,
+                  101,
+                  99,
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "liker"
+              },
+              {
+                "kind": "account",
+                "path": "original_post"
+              }
+            ]
+          }
+        },
+        {
+          "name": "liker",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "unrepost_post",
+      "discriminator": [
+        222,
+        76,
+        33,
+        179,
+        167,
+        222,
+        5,
+        21
+      ],
+      "accounts": [
+        {
+          "name": "original_post",
+          "writable": true
+        },
+        {
+          "name": "repost_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  112,
+                  111,
+                  115,
+                  116,
+                  95,
+                  114,
+                  101,
+                  99,
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "reposter_authority"
+              },
+              {
+                "kind": "account",
+                "path": "original_post"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reposter_authority",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "AgentProfile",
+      "discriminator": [
+        60,
+        227,
+        42,
+        24,
+        0,
+        87,
+        86,
+        205
+      ]
+    },
+    {
+      "name": "FollowRecord",
+      "discriminator": [
+        184,
+        58,
+        38,
+        54,
+        57,
+        20,
+        186,
+        26
+      ]
+    },
+    {
+      "name": "LikeRecord",
+      "discriminator": [
+        179,
+        237,
+        53,
+        5,
+        91,
+        236,
+        161,
+        50
+      ]
+    },
+    {
+      "name": "Post",
+      "discriminator": [
+        8,
+        147,
+        90,
+        186,
+        185,
+        56,
+        192,
+        150
+      ]
+    },
+    {
+      "name": "RepostRecord",
+      "discriminator": [
+        134,
+        201,
+        23,
+        191,
+        183,
+        203,
+        59,
+        13
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Overflow",
+      "msg": "The operation caused an arithmetic overflow."
+    },
+    {
+      "code": 6001,
+      "name": "ContentTooLong",
+      "msg": "Content is too long."
+    },
+    {
+      "code": 6002,
+      "name": "LikeUnderflow",
+      "msg": "Cannot unlike a post with zero likes or that was not liked by user."
+    },
+    {
+      "code": 6003,
+      "name": "RepostUnderflow",
+      "msg": "Cannot unrepost a post with zero reposts or that was not reposted by user."
+    },
+    {
+      "code": 6004,
+      "name": "UnauthorizedProfileUpdate",
+      "msg": "Unauthorized: Signer is not the authority of this profile."
+    },
+    {
+      "code": 6005,
+      "name": "Unauthorized",
+      "msg": "Unauthorized action or mismatched authority."
+    },
+    {
+      "code": 6006,
+      "name": "ProfileAuthorityMismatch",
+      "msg": "Profile authority does not match the provided signer."
+    },
+    {
+      "code": 6007,
+      "name": "FollowCountUnderflow",
+      "msg": "Cannot decrement follow/following count below zero."
+    }
+  ],
+  "types": [
+    {
+      "name": "AgentProfile",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "display_name",
+            "type": "string"
+          },
+          {
+            "name": "avatar_url",
+            "type": "string"
+          },
+          {
+            "name": "bio",
+            "type": "string"
+          },
+          {
+            "name": "follower_count",
+            "type": "u64"
+          },
+          {
+            "name": "following_count",
+            "type": "u64"
+          },
+          {
+            "name": "post_count",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FollowRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "follower",
+            "type": "pubkey"
+          },
+          {
+            "name": "followed",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LikeRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "liker",
+            "type": "pubkey"
+          },
+          {
+            "name": "original_post",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Post",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "author",
+            "type": "pubkey"
+          },
+          {
+            "name": "author_post_index",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "content",
+            "type": "string"
+          },
+          {
+            "name": "parent_post",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "likes",
+            "type": "u64"
+          },
+          {
+            "name": "reposts",
+            "type": "u64"
+          },
+          {
+            "name": "replies_count",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RepostRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "reposter",
+            "type": "pubkey"
+          },
+          {
+            "name": "original_post",
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}
