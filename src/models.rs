@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
-use borsh::{ BorshDeserialize, BorshSerialize };
-use serde::{ Deserialize, Serialize };
+use borsh::BorshDeserialize;
 
 // Client-side representations of on-chain accounts
 

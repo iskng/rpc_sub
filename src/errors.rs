@@ -8,6 +8,8 @@ pub enum IndexerError {
 
     #[error("Solana Client Error: {0}")] SolanaClientError(#[from] ClientError),
 
+    #[error("RPC Error: {0}")] RpcError(String),
+
     #[error("WebSocket Error: {0}")] WebSocketError(String),
 
     #[error("Failed to parse Pubkey: {0}")] ParsePubkeyError(#[from] ParsePubkeyError),
