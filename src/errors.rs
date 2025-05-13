@@ -1,5 +1,5 @@
-use solana_client::client_error::ClientError;
-use solana_sdk::pubkey::ParsePubkeyError;
+use anchor_client::solana_client::client_error::ClientError;
+use anchor_client::solana_sdk::pubkey::ParsePubkeyError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

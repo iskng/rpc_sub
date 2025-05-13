@@ -227,6 +227,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "anchor-client"
+version = "0.31.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49b3e91b12501d37c8f07de9da8c7d22067998a7760a515231187afb47ded225"
+dependencies = [
+ "anchor-lang",
+ "anyhow",
+ "futures",
+ "regex",
+ "serde",
+ "solana-account-decoder",
+ "solana-client",
+ "solana-sdk",
+ "thiserror 1.0.69",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "anchor-derive-accounts"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3154,6 +3173,7 @@ dependencies = [
 name = "rpc_sub"
 version = "0.1.0"
 dependencies = [
+ "anchor-client",
  "anchor-lang",
  "anyhow",
  "borsh 0.10.4",
@@ -3163,9 +3183,6 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
- "solana-client",
- "solana-program",
- "solana-sdk",
  "solana-transaction-status",
  "thiserror 2.0.12",
  "tokio",

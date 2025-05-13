@@ -1,30 +1,45 @@
 mod errors;
 mod models;
-
 use anchor_lang::AccountDeserialize;
 use crate::errors::IndexerError;
 use crate::models::*;
-use anchor_lang::{ AnchorDeserialize };
 use log::{ debug, error, info, warn };
-use solana_client::{
+use anchor_client::solana_client::{
     nonblocking::pubsub_client::PubsubClient,
     rpc_client::RpcClient,
     rpc_config::{ RpcTransactionLogsFilter, RpcTransactionLogsConfig },
     rpc_response::RpcLogsResponse,
 };
-use solana_sdk::{ commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature };
+use anchor_client::solana_sdk;
+use anchor_client::solana_client;
+use anchor_client::solana_sdk::{
+    commitment_config::CommitmentConfig,
+    pubkey::Pubkey,
+    signature::Signature,
+};
 use solana_transaction_status::{
     option_serializer::OptionSerializer,
     EncodedConfirmedTransactionWithStatusMeta,
     UiTransactionEncoding,
 };
 use futures_util::stream::StreamExt;
-use std::{ collections::HashSet, env, str::FromStr, time::Duration };
+use std::{ collections::HashSet, str::FromStr, time::Duration };
 use tokio::time::sleep;
 use std::sync::atomic::{ AtomicUsize, Ordering };
 use std::sync::Arc;
 
-const PROGRAM_ID_STR: &str = "Cw6VFzwbVFV9GHYLTVsK55jujskQAZF63xFFsL8oGFjr";
+const PROGRAM_ID_STR: &str = "9AtCEeZCvLhNU4hypE69CmhiTzMejCz9vdpuRPH1SRjw";
+
+// Instruction discriminators (Updated from IDL)
+const CREATE_POST_DISCRIMINATOR: [u8; 8] = [123, 92, 184, 29, 231, 24, 15, 202];
+const REPLY_TO_POST_DISCRIMINATOR: [u8; 8] = [47, 124, 83, 114, 55, 170, 176, 188];
+const LIKE_POST_DISCRIMINATOR: [u8; 8] = [45, 242, 154, 71, 63, 133, 54, 186];
+const UNLIKE_POST_DISCRIMINATOR: [u8; 8] = [236, 63, 6, 34, 128, 3, 114, 174];
+const REPOST_POST_DISCRIMINATOR: [u8; 8] = [175, 134, 193, 12, 27, 197, 61, 189];
+const UNREPOST_POST_DISCRIMINATOR: [u8; 8] = [222, 76, 33, 179, 167, 222, 5, 21];
+const CREATE_OR_UPDATE_PROFILE_DISCRIMINATOR: [u8; 8] = [52, 169, 99, 129, 231, 122, 119, 207];
+const FOLLOW_AGENT_DISCRIMINATOR: [u8; 8] = [64, 202, 196, 131, 84, 241, 248, 38];
+const UNFOLLOW_AGENT_DISCRIMINATOR: [u8; 8] = [124, 101, 198, 225, 35, 138, 12, 36];
 
 #[tokio::main]
 async fn main() -> Result<(), IndexerError> {
@@ -41,7 +56,7 @@ async fn main() -> Result<(), IndexerError> {
     info!("Connecting to WebSocket: {}", ws_url);
     info!("Subscribing to logs for program: {}", program_id);
 
-    let rpc_client = RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
+    let rpc_client = RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::finalized());
 
     // Try a simple RPC call to test connection
     match rpc_client.get_slot() {
@@ -65,7 +80,7 @@ async fn main() -> Result<(), IndexerError> {
         RpcTransactionLogsFilter::Mentions(vec![program_id.to_string()])
     );
     let logs_config = RpcTransactionLogsConfig {
-        commitment: Some(CommitmentConfig::confirmed()),
+        commitment: Some(CommitmentConfig::finalized()),
     };
 
     let (mut logs_stream, logs_unsubscribe) = pubsub_client
@@ -102,11 +117,22 @@ async fn main() -> Result<(), IndexerError> {
 
     // Add a counter for transactions
     let mut transactions_total = 0;
+    let mut processed_signatures = HashSet::new();
 
     while let Some(response_wrapper) = logs_stream.next().await {
         transactions_total += 1;
         transactions_seen.fetch_add(1, Ordering::SeqCst);
+
+        // Log raw response for debugging
+        debug!("Raw WS Response: {:?}", response_wrapper);
+
         let RpcLogsResponse { signature, err, logs, .. } = response_wrapper.value;
+
+        // Check if we've already processed this signature
+        if !processed_signatures.insert(signature.clone()) {
+            info!("Skipping already processed transaction: {}", signature);
+            continue;
+        }
 
         info!("Transaction #{}: {}", transactions_total, signature);
 
@@ -120,6 +146,7 @@ async fn main() -> Result<(), IndexerError> {
 
         // Heuristic: if logs contain "Program log: Instruction:", it's likely one of our program's instructions
         // and not just a token transfer or some other CPI from another program mentioning ours.
+        /*
         let is_program_interaction = logs.iter().any(|log| {
             log.starts_with(&format!("Program {} invoke", program_id)) ||
                 log.contains("Program log: Instruction:") // Anchor instruction logs
@@ -129,6 +156,7 @@ async fn main() -> Result<(), IndexerError> {
             debug!("Skipping signature {} as it doesn't seem to be a direct program interaction.", signature);
             continue;
         }
+        */
 
         info!("Processing transaction: {} ({} logs)", signature, logs.len());
 
@@ -149,27 +177,74 @@ async fn main() -> Result<(), IndexerError> {
                 let mut unique_accounts_to_fetch = HashSet::new();
 
                 // Instructions are likely fine as VersionedMessage has an instructions() method
-                for (_idx, inst) in decoded_transaction.message.instructions().iter().enumerate() {
+                for (idx, inst) in decoded_transaction.message.instructions().iter().enumerate() {
                     let prog_key_idx = inst.program_id_index as usize;
                     if
                         prog_key_idx < account_keys.len() &&
                         account_keys[prog_key_idx] == program_id
                     {
+                        info!(
+                            "  Instruction #{} targets program {}. Data len: {}",
+                            idx,
+                            program_id,
+                            inst.data.len()
+                        );
+
+                        // Instruction discriminator check
+                        if inst.data.len() >= 8 {
+                            let discriminator = &inst.data[..8];
+                            match discriminator {
+                                x if x == CREATE_POST_DISCRIMINATOR =>
+                                    info!("    Detected: create_post"),
+                                x if x == REPLY_TO_POST_DISCRIMINATOR =>
+                                    info!("    Detected: reply_to_post"),
+                                x if x == LIKE_POST_DISCRIMINATOR =>
+                                    info!("    Detected: like_post"),
+                                x if x == UNLIKE_POST_DISCRIMINATOR =>
+                                    info!("    Detected: unlike_post"),
+                                x if x == REPOST_POST_DISCRIMINATOR =>
+                                    info!("    Detected: repost_post"),
+                                x if x == UNREPOST_POST_DISCRIMINATOR =>
+                                    info!("    Detected: unrepost_post"),
+                                x if x == CREATE_OR_UPDATE_PROFILE_DISCRIMINATOR =>
+                                    info!("    Detected: create_or_update_profile"),
+                                x if x == FOLLOW_AGENT_DISCRIMINATOR =>
+                                    info!("    Detected: follow_agent"),
+                                x if x == UNFOLLOW_AGENT_DISCRIMINATOR =>
+                                    info!("    Detected: unfollow_agent"),
+                                _ =>
+                                    warn!(
+                                        "    Unknown instruction discriminator: {:?}",
+                                        discriminator
+                                    ),
+                            }
+                            // TODO: Deserialize instruction args based on discriminator for full indexing
+                        } else {
+                            warn!("    Instruction data too short for discriminator.");
+                        }
+
+                        // Collect accounts involved in this instruction
                         for acc_idx in &inst.accounts {
                             if (*acc_idx as usize) < account_keys.len() {
                                 unique_accounts_to_fetch.insert(account_keys[*acc_idx as usize]);
                             }
                         }
+                    } else {
+                        // Log instructions not targeting our program (e.g., CPIs *from* our program)
+                        debug!("  Instruction #{} targets different program: {}", idx, if
+                            prog_key_idx < account_keys.len()
+                        {
+                            account_keys[prog_key_idx].to_string()
+                        } else {
+                            "<Index out of bounds>".to_string()
+                        });
                     }
                 }
 
+                // Include accounts from loaded addresses (important for ALT)
                 if let Some(meta) = tx_detail.transaction.meta.as_ref() {
-                    // meta.loaded_addresses is OptionSerializer<UiLoadedAddresses>
-                    // Match on its variants to get the inner UiLoadedAddresses
                     match &meta.loaded_addresses {
-                        // Match on a reference
                         OptionSerializer::Some(loaded_addresses_val) => {
-                            // loaded_addresses_val is &UiLoadedAddresses here
                             for key_str in loaded_addresses_val.writable
                                 .iter()
                                 .chain(&loaded_addresses_val.readonly) {
@@ -204,50 +279,75 @@ async fn main() -> Result<(), IndexerError> {
 
                 for account_pubkey in unique_accounts_to_fetch {
                     debug!("Attempting to fetch account: {}", account_pubkey);
-                    match rpc_client.get_account_data(&account_pubkey) {
-                        Ok(data) => {
-                            if data.is_empty() {
-                                debug!("Account {} has no data or was closed.", account_pubkey);
-                                continue;
-                            }
-                            match
-                                rpc_client.get_account_with_commitment(
-                                    &account_pubkey,
-                                    CommitmentConfig::confirmed()
-                                )
-                            {
-                                Ok(owner_response) => {
-                                    if let Some(account) = owner_response.value {
-                                        if account.owner != program_id {
-                                            debug!(
-                                                "Account {} is not owned by program {}. Owner: {}",
-                                                account_pubkey,
-                                                program_id,
-                                                account.owner
-                                            );
-                                            continue;
-                                        }
-                                        info!(
-                                            "Account {} owned by program {}. Deserializing...",
-                                            account_pubkey,
-                                            program_id
-                                        );
-                                        deserialize_and_print_account_data(&account_pubkey, &data);
-                                    } else {
-                                        debug!("Account {} not found after initial data check.", account_pubkey);
-                                    }
-                                }
-                                Err(e) => {
-                                    warn!(
-                                        "Failed to get account owner info for {}: {}",
+                    match
+                        rpc_client.get_account_with_commitment(
+                            &account_pubkey,
+                            CommitmentConfig::finalized()
+                        )
+                    {
+                        Ok(response) => {
+                            if let Some(account) = response.value {
+                                debug!(
+                                    "Processing fetched account {} for deserialization. Owner: {}, Data len: {}. Is program owned: {}",
+                                    account_pubkey,
+                                    account.owner,
+                                    account.data.len(),
+                                    account.owner == program_id
+                                );
+                                // Check owner *before* trying to deserialize
+                                if account.owner != program_id {
+                                    debug!(
+                                        "Account {} is not owned by program {}. Owner: {}",
                                         account_pubkey,
-                                        e
+                                        program_id,
+                                        account.owner
                                     );
+                                    continue; // Skip accounts not owned by our program
                                 }
+
+                                if account.data.is_empty() {
+                                    debug!(
+                                        "Account {} owned by program {} but has no data.",
+                                        account_pubkey,
+                                        program_id
+                                    );
+                                    continue;
+                                }
+
+                                // Now deserialize
+                                info!(
+                                    "Account {} owned by program {}. Deserializing...",
+                                    account_pubkey,
+                                    program_id
+                                );
+                                deserialize_and_print_account_data(&account_pubkey, &account.data);
+                            } else {
+                                // Account not found, could have been closed. This is often expected.
+                                debug!("Account {} not found (likely closed).", account_pubkey);
                             }
                         }
                         Err(e) => {
-                            warn!("Failed to fetch account data for {}: {}", account_pubkey, e);
+                            // Log other RPC errors more seriously
+                            if
+                                let solana_client::client_error::ClientErrorKind::RpcError(
+                                    solana_client::rpc_request::RpcError::ForUser(s),
+                                ) = &e.kind
+                            {
+                                if s.contains("AccountNotFound") || s.contains("was not found") {
+                                    debug!(
+                                        "Account {} not found (likely closed): {}",
+                                        account_pubkey,
+                                        s
+                                    );
+                                    continue;
+                                }
+                            }
+                            // Log other errors as warnings
+                            warn!(
+                                "Failed to fetch account info/owner for {}: {}",
+                                account_pubkey,
+                                e
+                            );
                         }
                     }
                 }
@@ -316,39 +416,49 @@ async fn fetch_transaction_with_retry(
     Ok(None)
 }
 
+// Simplified function: Relies on try_deserialize's internal discriminator check.
 fn deserialize_and_print_account_data(account_pubkey: &Pubkey, data: &[u8]) {
+    debug!(
+        "Enter deserialize_and_print_account_data for {}. Data len: {}. Data prefix (first 8 bytes): {:?}",
+        account_pubkey,
+        data.len(),
+        &data[..std::cmp::min(8, data.len())]
+    );
     if data.is_empty() {
-        info!("Account {} data is empty, possibly closed or uninitialized.", account_pubkey);
+        info!("Account {} data is empty, cannot deserialize.", account_pubkey);
         return;
     }
 
-    if let Ok(post) = Post::try_deserialize(&mut &data[..]) {
+    // Try deserializing into each known type.
+    // The `try_deserialize` methods in models.rs handle the discriminator check.
+    if let Ok(post) = Post::try_deserialize(&mut &*data) {
         info!("Deserialized Post ({}): {:?}", account_pubkey, post);
         return;
     }
 
-    if let Ok(profile) = AgentProfile::try_deserialize(&mut &data[..]) {
+    if let Ok(profile) = AgentProfile::try_deserialize(&mut &*data) {
         info!("Deserialized AgentProfile ({}): {:?}", account_pubkey, profile);
         return;
     }
 
-    if let Ok(like_record) = LikeRecord::try_deserialize(&mut &data[..]) {
+    if let Ok(like_record) = LikeRecord::try_deserialize(&mut &*data) {
         info!("Deserialized LikeRecord ({}): {:?}", account_pubkey, like_record);
         return;
     }
 
-    if let Ok(repost_record) = RepostRecord::try_deserialize(&mut &data[..]) {
+    if let Ok(repost_record) = RepostRecord::try_deserialize(&mut &*data) {
         info!("Deserialized RepostRecord ({}): {:?}", account_pubkey, repost_record);
         return;
     }
 
-    if let Ok(follow_record) = FollowRecord::try_deserialize(&mut &data[..]) {
+    if let Ok(follow_record) = FollowRecord::try_deserialize(&mut &*data) {
         info!("Deserialized FollowRecord ({}): {:?}", account_pubkey, follow_record);
         return;
     }
 
+    // If none matched
     warn!(
-        "Could not deserialize account data for {} (len {}). First 8 bytes (discriminator?): {:?}. This may indicate an unknown account type or corrupted data.",
+        "Could not deserialize account data for {} (len {}). Data prefix (8 bytes): {:?}. This may indicate an unknown account type for this program, data corruption, or an account associated with a CPI from/to another program.",
         account_pubkey,
         data.len(),
         &data[..std::cmp::min(8, data.len())]
@@ -356,10 +466,5 @@ fn deserialize_and_print_account_data(account_pubkey: &Pubkey, data: &[u8]) {
 }
 
 // TODO:
-// 1. Implement robust discriminator checking in `deserialize_and_print_account_data`.
-//    You can get discriminators by calling `MyAccount::discriminator()` if your `models.rs` structs
-//    were actual Anchor `#[account]` structs. Since we replicated them, you might need to
-//    pre-calculate them or fetch from IDL. For `#[derive(InitSpace)]` on plain structs,
-//    there's no automatic discriminator like `#[account]`.
-//
-//    The `try_deserialize`
+// 1. Consider adding database persistence for the deserialized data.
+// 2. Explore ways to handle chain reorgs or missed events if necessary for production use.
